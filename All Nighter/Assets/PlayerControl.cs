@@ -17,6 +17,7 @@ public class PlayerControl : MonoBehaviour
     [SerializeField] [Range(0.0f, 360f)] private float lightRotationBoost;
     [SerializeField] [Range(0.0f, 360f)] private float maxRotation;
     [SerializeField] private float minimumSpeed;
+    [SerializeField] private Grid referenceGrid;
 
     [SerializeField] [Range(0.0f, 1.0f)] private float turnStrength;
     private float lastDirection;
@@ -107,8 +108,6 @@ public class PlayerControl : MonoBehaviour
                 
             }
 
-            //velocity = Vector2.Lerp(velocity, additiveSpeed, turnStrength);
-
             float dangle = vectorAngle(newDirection);
 
             if (Mathf.Abs( Mathf.DeltaAngle(direction, vectorAngle(newDirection))) > instantRotationCutoff)
@@ -129,11 +128,8 @@ public class PlayerControl : MonoBehaviour
                     
             }
 
-            print(newSpeed);
-            //velocity = Vector2.Lerp(velocity, additiveSpeed, turnStrength);
             if (currentSpeed > maxspd)
             {
-                print("speedcap");
                 velocity = velocity.normalized * maxspd;
             }
 
@@ -164,7 +160,7 @@ public class PlayerControl : MonoBehaviour
 
 
         //move player
-        transform.position = new Vector3(transform.position.x+velocity.x,transform.position.y+velocity.y,transform.position.z);
+        transform.position = new Vector3(transform.position.x+velocity.x * referenceGrid.cellSize.x,transform.position.y+velocity.y * referenceGrid.cellSize.y, transform.position.z);
 
     }
 }
