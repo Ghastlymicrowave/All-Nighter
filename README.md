@@ -1,5 +1,5 @@
 # All-Nighter
-<img src="Resources/015_sample.png">
+<img src="Resources/015_sample.png"></img>
 ## What is this?
 All-Nighter is a self made "game jam" where we set our own time constraint and based it off of the [Famicase](http://famicase.com/20/index.html) website, picking on of the carts to use for our theme. 
 
