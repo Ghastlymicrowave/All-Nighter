@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using System;
 
 public class PlayerControl : MonoBehaviour
 {
@@ -22,7 +23,10 @@ public class PlayerControl : MonoBehaviour
     [SerializeField] [Range(0.0f, 1.0f)] private float turnStrength;
     private float lastDirection;
 
-    public Text debugSpeed;
+    [SerializeField] Text debugSpeed;
+    public LayerMask playerCollisionMask;
+
+    private CircleCollider2D circleCollider;
 
     public float currentSpeed {
         get{
@@ -74,6 +78,7 @@ public class PlayerControl : MonoBehaviour
     void Start()
     {
         lastDirection = 0;
+        circleCollider = GetComponent<CircleCollider2D>();
     }
 
     // Update is called once per frame
@@ -155,12 +160,59 @@ public class PlayerControl : MonoBehaviour
             debugSpeed.text = currentSpeed.ToString();
         }
 
+        Vector3 moveVector = new Vector3(velocity.x * referenceGrid.cellSize.x, velocity.y * referenceGrid.cellSize.y, 0f);
+
+        RaycastHit2D collision;
+
+        Debug.DrawLine(transform.position,transform.position+ Vector3.right * circleCollider.radius * transform.localScale.x);
+
+        float moveAngle = Mathf.Deg2Rad * vectorAngle(moveVector);
+
+        
+        float circleRadius = circleCollider.radius * transform.localScale.x;
+        collision = Physics2D.CircleCast(transform.position, circleRadius, moveVector.normalized, moveVector.magnitude, playerCollisionMask);
+        if (collision.transform != null)
+        {
+            Vector2 tempMove;
+            float angle = vectorAngle(Vector2.Perpendicular(collision.normal).normalized);
+            if (Mathf.Abs(Mathf.DeltaAngle(vectorAngle(velocity), angle)) > 80f)
+            {
+                angle += 180;
+            }
+            if (Mathf.Abs(Mathf.DeltaAngle(vectorAngle(velocity), angle)) < 50f)
+            {
+                tempMove = new Vector2(Mathf.Cos(Mathf.Deg2Rad * angle) * velocity.magnitude, Mathf.Sin(Mathf.Deg2Rad * angle) * velocity.magnitude);
+                moveVector = new Vector3(tempMove.x * referenceGrid.cellSize.x, tempMove.y * referenceGrid.cellSize.y, 0f);
+            }
+        }
+
+        //horizontal collision
+        collision = Physics2D.CircleCast(transform.position, circleCollider.radius * transform.localScale.x, new Vector2( -1+2*Convert.ToInt32((Mathf.Sign(moveVector.x) > 0)),0), Mathf.Abs(moveVector.x),playerCollisionMask);
+        if (collision.transform != null)//hit something
+        {
+            float off = 0f;
+            off = Mathf.Cos(Mathf.Deg2Rad * vectorAngle(collision.point- new Vector2(transform.position.x,transform.position.y))) * circleCollider.radius * transform.localScale.x;
+            moveVector.x = (collision.point.x - (transform.position.x + off));
+        }
+
+        //vertical collision
+        collision = Physics2D.CircleCast(transform.position, circleCollider.radius * transform.localScale.x, new Vector2(0, -1 + 2 * Convert.ToInt32((Mathf.Sign(moveVector.y) > 0))), Mathf.Abs(moveVector.y), playerCollisionMask);
+        if (collision.transform != null)//hit something
+        {
+            moveVector.y -= Mathf.Max( Mathf.Abs( (transform.position.y+moveVector.y)- collision.point.y),moveVector.y) * Mathf.Sign(moveVector.y) ;
+            float off = 0f;
+            off = Mathf.Sin(Mathf.Deg2Rad * vectorAngle(collision.point - new Vector2(transform.position.x, transform.position.y))) * circleCollider.radius * transform.localScale.y;
+            moveVector.y = (collision.point.y - (transform.position.y + off));
+        }
+
+        
+
         Vector3 targetVector = new Vector3(transform.position.x + Mathf.Cos(direction * Mathf.Deg2Rad) * 20f, transform.position.y + Mathf.Sin(direction * Mathf.Deg2Rad) * 20f, transform.position.z);
         Debug.DrawLine(transform.position+Vector3.back, targetVector + Vector3.back);
 
 
         //move player
-        transform.position = new Vector3(transform.position.x+velocity.x * referenceGrid.cellSize.x,transform.position.y+velocity.y * referenceGrid.cellSize.y, transform.position.z);
+        transform.position = moveVector + transform.position;
 
     }
 }
