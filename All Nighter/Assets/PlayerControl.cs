@@ -27,6 +27,10 @@ public class PlayerControl : MonoBehaviour
     public LayerMask playerCollisionMask;
 
     private CircleCollider2D circleCollider;
+    Camera camera;
+    [SerializeField] private Vector3 cameraOffset;
+    [SerializeField] private Vector3 cameraPosition;
+
 
     public float currentSpeed {
         get{
@@ -79,6 +83,10 @@ public class PlayerControl : MonoBehaviour
     {
         lastDirection = 0;
         circleCollider = GetComponent<CircleCollider2D>();
+        //grab main camera
+        camera = Camera.main;
+        camera.enabled = true;
+        cameraOffset = transform.position - camera.transform.position;
     }
 
     // Update is called once per frame
@@ -214,5 +222,10 @@ public class PlayerControl : MonoBehaviour
         //move player
         transform.position = moveVector + transform.position;
 
+        //move camera
+        float t = 0.85f;
+        cameraPosition = camera.transform.position;
+        cameraPosition.z = transform.position.z;
+        camera.transform.position = Vector3.Lerp(transform.position, cameraPosition - cameraOffset, t);
     }
 }
