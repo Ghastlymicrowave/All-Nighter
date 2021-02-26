@@ -28,15 +28,16 @@ public class PlayerControl : MonoBehaviour
     [Tooltip("if the player is moving, they will move atleast this speed")]
     [SerializeField] private float minimumSpeed;
     [SerializeField] private Grid referenceGrid;
-
     [Tooltip("a multiplier ontop of the maximum rotation per frame, keep it around .5 for best results")]
     [SerializeField] [Range(0.0f, 1.0f)] private float turnStrength;
-    private float lastDirection;
+
+
 
     [SerializeField] Text debugSpeed;
+    private float lastDirection;    
     public LayerMask playerCollisionMask;
+    private PolygonCollider2D circleCollider;
 
-    private CircleCollider2D circleCollider;
     Camera camera;
     [Header("Camera Settings")]
     [Tooltip("if true, resets the cameraOffset to the current localPosition when start is called")]
@@ -127,7 +128,7 @@ public class PlayerControl : MonoBehaviour
     void Start()
     {
         lastDirection = 0;
-        circleCollider = GetComponent<CircleCollider2D>();
+        circleCollider = GetComponent<PolygonCollider2D>();
         //grab main camera
         camera = Camera.main;
         camera.enabled = true;
@@ -207,7 +208,7 @@ public class PlayerControl : MonoBehaviour
                 }
                 else
                 {
-                    velocity -= velocity.normalized * decelleration *currentSpeed;
+                    velocity -= velocity.normalized * Mathf.Min( decelleration * maxspd,velocity.magnitude);
                 }
             }     
         }
@@ -219,47 +220,57 @@ public class PlayerControl : MonoBehaviour
 
         Vector3 moveVector = new Vector3(velocity.x * referenceGrid.cellSize.x, velocity.y * referenceGrid.cellSize.y, 0f);
 
-        RaycastHit2D collision;
-
-        Debug.DrawLine(transform.position,transform.position+ Vector3.right * circleCollider.radius * transform.localScale.x);
-
-        float moveAngle = Mathf.Deg2Rad * vectorAngle(moveVector);
+        RaycastHit2D[] collision = new RaycastHit2D[1];
 
         
-        float circleRadius = circleCollider.radius * transform.localScale.x;
-        collision = Physics2D.CircleCast(transform.position, circleRadius, moveVector.normalized, moveVector.magnitude, playerCollisionMask);
-        if (collision.transform != null)
+
+        float moveAngle = Mathf.Deg2Rad * vectorAngle(moveVector);
+        ContactFilter2D filter = new ContactFilter2D();
+        filter.useLayerMask = true;
+        filter.layerMask = playerCollisionMask;
+        
+        int collisions = circleCollider.Cast(moveVector.normalized, filter,collision,moveVector.magnitude*4f);
+        if (collisions>0)
         {
             Vector2 tempMove;
-            float angle = vectorAngle(Vector2.Perpendicular(collision.normal).normalized);
-            if (Mathf.Abs(Mathf.DeltaAngle(vectorAngle(velocity), angle)) > 80f)
+            float angle = vectorAngle(Vector2.Perpendicular(collision[0].normal).normalized);
+            if (Mathf.Abs(Mathf.DeltaAngle(vectorAngle(velocity), angle)) > 90f)
             {
                 angle += 180;
             }
-            if (Mathf.Abs(Mathf.DeltaAngle(vectorAngle(velocity), angle)) < 50f)
+            if (Mathf.Abs(Mathf.DeltaAngle(vectorAngle(velocity), angle)) < 90f)
             {
                 tempMove = new Vector2(Mathf.Cos(Mathf.Deg2Rad * angle) * velocity.magnitude, Mathf.Sin(Mathf.Deg2Rad * angle) * velocity.magnitude);
                 moveVector = new Vector3(tempMove.x * referenceGrid.cellSize.x, tempMove.y * referenceGrid.cellSize.y, 0f);
             }
+            //Debug.DrawLine(transform.position, transform.position + moveVector * 20f, Color.green, 3f);
         }
 
         //horizontal collision
-        collision = Physics2D.CircleCast(transform.position, circleCollider.radius * transform.localScale.x, new Vector2( -1+2*Convert.ToInt32((Mathf.Sign(moveVector.x) > 0)),0), Mathf.Abs(moveVector.x),playerCollisionMask);
-        if (collision.transform != null)//hit something
+        //collision = Physics2D.CircleCast(transform.position, circleCollider.radius * transform.localScale.x, new Vector2( -1+2*Convert.ToInt32((Mathf.Sign(moveVector.x) > 0)),0), Mathf.Abs(moveVector.x),playerCollisionMask);
+        //if (collision.transform != null)//hit something
+        collisions = circleCollider.Cast(new Vector2(-1 + 2 * Convert.ToInt32((Mathf.Sign(moveVector.x) > 0)), 0), filter, collision, Mathf.Abs(moveVector.x)*4f);
+        if (collisions > 0)
         {
-            float off = 0f;
-            off = Mathf.Cos(Mathf.Deg2Rad * vectorAngle(collision.point- new Vector2(transform.position.x,transform.position.y))) * circleCollider.radius * transform.localScale.x;
-            moveVector.x = (collision.point.x - (transform.position.x + off));
+            //float off = 0f;
+            //off = Mathf.Cos(Mathf.Deg2Rad * vectorAngle(collision[0].point- new Vector2(transform.position.x,transform.position.y))) * circleCollider.bounds.size.x * transform.localScale.x;
+            //moveVector.x = (collision[0].point.x - (transform.position.x + off));
+            moveVector.x = Mathf.Cos(moveVector.x) * Mathf.Max((collision[0].distance-2f),0);
         }
 
         //vertical collision
-        collision = Physics2D.CircleCast(transform.position, circleCollider.radius * transform.localScale.x, new Vector2(0, -1 + 2 * Convert.ToInt32((Mathf.Sign(moveVector.y) > 0))), Mathf.Abs(moveVector.y), playerCollisionMask);
-        if (collision.transform != null)//hit something
+        //collision = Physics2D.CircleCast(transform.position, circleCollider.radius * transform.localScale.x, new Vector2(0, -1 + 2 * Convert.ToInt32((Mathf.Sign(moveVector.y) > 0))), Mathf.Abs(moveVector.y), playerCollisionMask);
+        //if (collision.transform != null)//hit something
+        collisions = circleCollider.Cast(new Vector2(0, -1 + 2 * Convert.ToInt32((Mathf.Sign(moveVector.y) > 0))), filter, collision, Mathf.Abs(moveVector.y)*4f);
+        if (collisions > 0)
         {
-            moveVector.y -= Mathf.Max( Mathf.Abs( (transform.position.y+moveVector.y)- collision.point.y),moveVector.y) * Mathf.Sign(moveVector.y) ;
-            float off = 0f;
-            off = Mathf.Sin(Mathf.Deg2Rad * vectorAngle(collision.point - new Vector2(transform.position.x, transform.position.y))) * circleCollider.radius * transform.localScale.y;
-            moveVector.y = (collision.point.y - (transform.position.y + off));
+            //moveVector.y -= Mathf.Max( Mathf.Abs( (transform.position.y+moveVector.y)- collision[0].point.y),moveVector.y) * Mathf.Sign(moveVector.y) ;
+            //float off = 0f;
+            //off = Mathf.Sin(Mathf.Deg2Rad * vectorAngle(collision[0].point - new Vector2(transform.position.x, transform.position.y))) * collision[0].dis * transform.localScale.y;
+            //moveVector.y = (collision[0].point.y - (transform.position.y + off));
+            //Mathf.Sin(Mathf.Deg2Rad * vectorAngle(new Vector2(0, -1 + 2 * Convert.ToInt32((Mathf.Sign(moveVector.y) > 0)))))
+            print(collision[0].distance);
+            moveVector.y = Mathf.Sign(moveVector.y) * Mathf.Max((collision[0].distance-2f),0);
         }
 
         
