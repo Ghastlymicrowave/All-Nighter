@@ -19,6 +19,7 @@ public class PlayerControl : MonoBehaviour
     [SerializeField] [Range(0.0f, 360f)] private float maxRotation;
     [SerializeField] private float minimumSpeed;
     [SerializeField] private Grid referenceGrid;
+    
 
     [SerializeField] [Range(0.0f, 1.0f)] private float turnStrength;
     private float lastDirection;
@@ -28,8 +29,22 @@ public class PlayerControl : MonoBehaviour
 
     private CircleCollider2D circleCollider;
     Camera camera;
+    [SerializeField] private bool setCameraOffsetAtStart = true;
     [SerializeField] private Vector3 cameraOffset;
     [SerializeField] private Vector3 cameraPosition;
+    [SerializeField] private float cameraMoveExtensionSpeed;
+    [SerializeField] private float cameraMoveExtensionMaximumDistance;
+    [SerializeField] [Range(0.0f, 1.0f)] private float cameraMovementFactor;
+    [SerializeField] [Range(0.0f, 1.0f)] private float cameraRotationFactor;
+    [SerializeField] private bool cameraScaleZAccordingToExtension = true;
+    [SerializeField] private bool cameraScaleZOnlyIfFollowing = true;
+    [SerializeField] private float cameraLowDistanceZ;
+    [SerializeField] private float cameraHighDistanceZ;
+    [SerializeField] private float cameraMinimumDistanceToFollow;
+    [SerializeField] [Range(0.0f, 360.0f)] private float cameraAngleThreshold = 45f;
+
+
+    private Vector2 cameraMove;
 
 
     public float currentSpeed {
@@ -54,6 +69,14 @@ public class PlayerControl : MonoBehaviour
             }
 
             return Mathf.Rad2Deg * Mathf.Atan2(velocity.y,velocity.x);
+        }
+    }
+
+    public Vector2 lastDirectionVector
+    {
+        get
+        {
+            return new Vector2(Mathf.Cos(Mathf.Deg2Rad * lastDirection), Mathf.Sin(Mathf.Deg2Rad * lastDirection));
         }
     }
 
@@ -86,7 +109,11 @@ public class PlayerControl : MonoBehaviour
         //grab main camera
         camera = Camera.main;
         camera.enabled = true;
-        cameraOffset = transform.position - camera.transform.position;
+        if (setCameraOffsetAtStart)
+        {
+            cameraOffset = camera.transform.localPosition;
+        }
+        
     }
 
     // Update is called once per frame
@@ -223,9 +250,47 @@ public class PlayerControl : MonoBehaviour
         transform.position = moveVector + transform.position;
 
         //move camera
-        float t = 0.85f;
-        cameraPosition = camera.transform.position;
-        cameraPosition.z = transform.position.z;
-        camera.transform.position = Vector3.Lerp(transform.position, cameraPosition - cameraOffset, t);
+        
+        if (cameraMove != Vector2.zero &&( currentSpeed == 0 || Mathf.Abs(Mathf.DeltaAngle(vectorAngle(cameraMove),direction))>cameraAngleThreshold))
+        {
+            cameraMove = Vector2.zero;
+            print(Mathf.Abs(Mathf.DeltaAngle(vectorAngle(cameraMove), direction)));
+        }
+        else
+        {
+            cameraMove = Vector2.Lerp(cameraMove.normalized, velocity.normalized,cameraRotationFactor).normalized * (cameraMove.magnitude + cameraMoveExtensionSpeed);
+            if (cameraMove.magnitude > cameraMoveExtensionMaximumDistance)
+            {
+                cameraMove = cameraMove.normalized * cameraMoveExtensionMaximumDistance;
+            }
+        }
+
+        cameraPosition = camera.transform.localPosition;
+
+        if (cameraMove.magnitude > cameraMinimumDistanceToFollow)
+        {
+            float zOff = 0;
+            if (cameraScaleZAccordingToExtension)
+            {
+                if (cameraScaleZOnlyIfFollowing)
+                {
+                    zOff = Mathf.Lerp(cameraLowDistanceZ, cameraHighDistanceZ, Mathf.Max(cameraMove.magnitude - cameraMinimumDistanceToFollow, 0) / cameraMoveExtensionMaximumDistance);
+                }
+                else
+                {
+                    zOff = Mathf.Lerp(cameraLowDistanceZ, cameraHighDistanceZ, cameraMove.magnitude  / cameraMoveExtensionMaximumDistance);
+                }
+                
+            }
+            Vector3 newCamPos = new Vector3(cameraOffset.x + cameraMove.x, cameraOffset.y + cameraMove.y, cameraOffset.z + zOff);
+            camera.transform.localPosition = Vector3.Lerp(cameraPosition, newCamPos, cameraMovementFactor);
+        }
+        else
+        {
+            Vector3 newCamPos = new Vector3(cameraOffset.x , cameraOffset.y , cameraOffset.z );
+            camera.transform.localPosition = Vector3.Lerp(cameraPosition, newCamPos, cameraMovementFactor);
+        }
+
+        
     }
 }
