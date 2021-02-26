@@ -8,19 +8,28 @@ public class PlayerControl : MonoBehaviour
 {
 
     Vector2 velocity;
-
+    [Header("Player Speed Settings")]
+    [Tooltip("what the player's speed is set to when moving from being stationary")]
     [SerializeField] private float initalSpeed;
+    [Tooltip("maximum speed")]
     [SerializeField] private float maxspd;
+    [Tooltip("percent of maxspeed gained per frame")]
     [SerializeField] [Range(0.0f, 1.0f)] private float acceleration;
+    [Tooltip("percent of maxspeed lost per frame")]
     [SerializeField] [Range(0.0f, 1.0f)] private float decelleration;
-    [SerializeField] [Range(0.0f, 360f)] private float instantRotationCutoff;
-    [SerializeField] [Range(0.0f, 360f)] private float lightRotationCutoff;
+    [Tooltip("angle difference required for rotation to be instant")]
+    [SerializeField] [Range(0.0f, 360f)] private float instantRotationCutoff = 145f;
+    [Tooltip("the maximum angle difference where rotation is sped up")]
+    [SerializeField] [Range(0.0f, 360f)] private float lightRotationCutoff = 60f;
+    [Tooltip("the boost applied to rotation under the lightRotationCutoff")]
     [SerializeField] [Range(0.0f, 360f)] private float lightRotationBoost;
+    [Tooltip("the maximum rotation allowed per frame, not including the lightRotationBoost")]
     [SerializeField] [Range(0.0f, 360f)] private float maxRotation;
+    [Tooltip("if the player is moving, they will move atleast this speed")]
     [SerializeField] private float minimumSpeed;
     [SerializeField] private Grid referenceGrid;
-    
 
+    [Tooltip("a multiplier ontop of the maximum rotation per frame, keep it around .5 for best results")]
     [SerializeField] [Range(0.0f, 1.0f)] private float turnStrength;
     private float lastDirection;
 
@@ -29,23 +38,36 @@ public class PlayerControl : MonoBehaviour
 
     private CircleCollider2D circleCollider;
     Camera camera;
+    [Header("Camera Settings")]
+    [Tooltip("if true, resets the cameraOffset to the current localPosition when start is called")]
     [SerializeField] private bool setCameraOffsetAtStart = true;
+    [Tooltip("the constant localposition offset of the camera from the player")]
     [SerializeField] private Vector3 cameraOffset;
-    [SerializeField] private Vector3 cameraPosition;
+    [Tooltip("how many units per frame the camera extends")] 
     [SerializeField] private float cameraMoveExtensionSpeed;
+    [Tooltip("the maximum extension possible")] 
     [SerializeField] private float cameraMoveExtensionMaximumDistance;
+    [Tooltip("the lerp value that determines how quickly the camera moves to it's target location")] 
     [SerializeField] [Range(0.0f, 1.0f)] private float cameraMovementFactor;
+    [Tooltip("the lerp value which determines how quickly the player can rotate without the camera breaking it's extension")] 
     [SerializeField] [Range(0.0f, 1.0f)] private float cameraRotationFactor;
+    [Tooltip("if true, the camera z value will change accoring to the low and high distances in relation to the current extension/maximum extension as a lerp value")] 
     [SerializeField] private bool cameraScaleZAccordingToExtension = true;
+    [Tooltip("if true, the camera's z value will not change unless the extension is greater than the minimum distance")] 
     [SerializeField] private bool cameraScaleZOnlyIfFollowing = true;
+    [Tooltip("the relative z position when extension is low")] 
     [SerializeField] private float cameraLowDistanceZ;
+    [Tooltip("the relative z position when extension is at it's maximum")] 
     [SerializeField] private float cameraHighDistanceZ;
+    [Tooltip("the minimum distance required before the camera will follow the extended position")] 
     [SerializeField] private float cameraMinimumDistanceToFollow;
+    [Tooltip("the maximum angle allowed in a rotation before the extension breaks")] 
     [SerializeField] [Range(0.0f, 360.0f)] private float cameraAngleThreshold = 45f;
 
 
     private Vector2 cameraMove;
 
+    private Vector2 lockedDirection;
 
     public float currentSpeed {
         get{
@@ -134,7 +156,7 @@ public class PlayerControl : MonoBehaviour
                 {
                     velocity = newDirection * initalSpeed;
                     newSpeed = initalSpeed;
-
+                    lastDirection = vectorAngle( newDirection);
                 }
                 else
                 {
@@ -249,12 +271,10 @@ public class PlayerControl : MonoBehaviour
         //move player
         transform.position = moveVector + transform.position;
 
-        //move camera
-        
+        //rotate camera  
         if (cameraMove != Vector2.zero &&( currentSpeed == 0 || Mathf.Abs(Mathf.DeltaAngle(vectorAngle(cameraMove),direction))>cameraAngleThreshold))
         {
             cameraMove = Vector2.zero;
-            print(Mathf.Abs(Mathf.DeltaAngle(vectorAngle(cameraMove), direction)));
         }
         else
         {
@@ -265,8 +285,8 @@ public class PlayerControl : MonoBehaviour
             }
         }
 
-        cameraPosition = camera.transform.localPosition;
-
+        //move camera
+        Vector3 cameraPosition = camera.transform.localPosition;
         if (cameraMove.magnitude > cameraMinimumDistanceToFollow)
         {
             float zOff = 0;

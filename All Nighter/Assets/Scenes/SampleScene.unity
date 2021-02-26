@@ -303,18 +303,17 @@ MonoBehaviour:
   maxRotation: 5
   minimumSpeed: 0.1
   referenceGrid: {fileID: 480677579}
-  turnStrength: 0.507
+  turnStrength: 1
   debugSpeed: {fileID: 1686437145}
   playerCollisionMask:
     serializedVersion: 2
     m_Bits: 64
   setCameraOffsetAtStart: 1
   cameraOffset: {x: 0, y: 0, z: 0}
-  cameraPosition: {x: 0, y: 0, z: 0}
   cameraMoveExtensionSpeed: 0.01
   cameraMoveExtensionMaximumDistance: 3
   cameraMovementFactor: 0.02
-  cameraRotationFactor: 0.541
+  cameraRotationFactor: 0.2
   cameraScaleZAccordingToExtension: 1
   cameraScaleZOnlyIfFollowing: 1
   cameraLowDistanceZ: 0
