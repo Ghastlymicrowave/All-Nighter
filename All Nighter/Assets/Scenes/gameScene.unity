@@ -324,6 +324,10 @@ MonoBehaviour:
   minimumSpeed: 0.1
   referenceGrid: {fileID: 480677579}
   turnStrength: 1
+  dashTime: 3
+  dashBurstTime: 0.6
+  dashSpeed: 3
+  initalDashSpeed: 1
   debugSpeed: {fileID: 1686437145}
   playerCollisionMask:
     serializedVersion: 2

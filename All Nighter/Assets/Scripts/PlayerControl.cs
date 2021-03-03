@@ -13,6 +13,7 @@ public class PlayerControl : MonoBehaviour
     [SerializeField] private float initalSpeed;
     [Tooltip("maximum speed")]
     [SerializeField] private float maxspd;
+    private float currentMaxspd;
     [Tooltip("percent of maxspeed gained per frame")]
     [SerializeField] [Range(0.0f, 1.0f)] private float acceleration;
     [Tooltip("percent of maxspeed lost per frame")]
@@ -31,7 +32,14 @@ public class PlayerControl : MonoBehaviour
     [Tooltip("a multiplier ontop of the maximum rotation per frame, keep it around .5 for best results")]
     [SerializeField] [Range(0.0f, 1.0f)] private float turnStrength;
 
-
+    [Tooltip("time in seconds it takes to complete a full dash")]
+    [SerializeField] private float dashTime;
+    [Tooltip("time in seconds it takes to reach max dash speed, keep lower than dashTime")]
+    [SerializeField] private float dashBurstTime;
+    [Tooltip("dash max speed")]
+    [SerializeField] private float dashSpeed;
+    [Tooltip("the inital speed of a dash")]
+    [SerializeField] private float initalDashSpeed;
 
     [SerializeField] Text debugSpeed;
     private float lastDirection;    
@@ -65,6 +73,7 @@ public class PlayerControl : MonoBehaviour
     [Tooltip("the maximum angle allowed in a rotation before the extension breaks")] 
     [SerializeField] [Range(0.0f, 360.0f)] private float cameraAngleThreshold = 45f;
 
+    private float currentDashTime = -1;//-1 means inactive, -0.1 means just started
 
     private Vector2 cameraMove;
 
@@ -124,6 +133,12 @@ public class PlayerControl : MonoBehaviour
         );
     }
 
+    public static float OutCos(float t)
+    {
+        //returns a value from 0 to 1 based on 1, interpolates from t=0:1 to t=1:0 in a downward curve
+        return -Mathf.Cos(Mathf.PI / 2f * (t + 2));
+    }
+
     // Start is called before the first frame update
     void Start()
     {
@@ -136,7 +151,7 @@ public class PlayerControl : MonoBehaviour
         {
             cameraOffset = camera.transform.localPosition;
         }
-        
+        currentMaxspd = maxspd;
     }
 
     // Update is called once per frame
@@ -161,18 +176,21 @@ public class PlayerControl : MonoBehaviour
                 }
                 else
                 {
-                    newSpeed += acceleration * maxspd;
+                    newSpeed += acceleration * currentMaxspd;
                 }
             }
             else
             {
                 newDirection = new Vector2(inputx, inputy).normalized;
-                newSpeed += acceleration * maxspd;
+                newSpeed += acceleration * currentMaxspd;
                 
             }
 
             float dangle = vectorAngle(newDirection);
-
+            if (currentDashTime != -1f)
+            {
+                dangle = vectorAngle(lockedDirection);
+            }
             if (Mathf.Abs( Mathf.DeltaAngle(direction, vectorAngle(newDirection))) > instantRotationCutoff)
             {
                 velocity = rotate(velocity.normalized, Mathf.DeltaAngle(direction, vectorAngle(newDirection))) * newSpeed;
@@ -187,13 +205,6 @@ public class PlayerControl : MonoBehaviour
                 {
                     velocity = rotate(velocity.normalized, turnStrength * Mathf.Clamp(Mathf.DeltaAngle(direction, dangle), -maxRotation, maxRotation)) * newSpeed;
                 }
-
-                    
-            }
-
-            if (currentSpeed > maxspd)
-            {
-                velocity = velocity.normalized * maxspd;
             }
 
             lastDirection = direction;
@@ -208,10 +219,59 @@ public class PlayerControl : MonoBehaviour
                 }
                 else
                 {
-                    velocity -= velocity.normalized * Mathf.Min( decelleration * maxspd,velocity.magnitude);
+                    velocity -= velocity.normalized * Mathf.Min( decelleration * currentMaxspd, velocity.magnitude);
                 }
             }     
         }
+
+        if (Input.GetAxis("Dash") > 0 && currentDashTime == -1f)
+        {
+            if (velocity.magnitude > 0.1f)
+            {
+                lockedDirection = velocity.normalized;
+            }
+            else
+            {
+                lockedDirection = lastDirectionVector;
+            }
+            
+            currentDashTime = -0.1f;
+        }
+
+        if (currentDashTime != -1f)
+        {
+            if (currentDashTime == -0.1f)
+            {
+                currentDashTime = 0f;
+            }
+            else
+            {
+                currentDashTime += Time.deltaTime;
+            }
+            if (currentDashTime < dashBurstTime)
+            {
+                currentMaxspd = currentDashTime / dashBurstTime * (dashSpeed - initalDashSpeed) + initalDashSpeed;
+                velocity = lockedDirection.normalized * currentMaxspd;
+            }
+            else if (currentDashTime < dashTime)
+            {
+                currentMaxspd = OutCos((currentDashTime - dashBurstTime) / (dashTime - dashBurstTime)) * dashSpeed;
+                print((currentDashTime - dashBurstTime) / (dashTime - dashBurstTime));
+                velocity = lockedDirection.normalized * currentMaxspd;
+            }
+            else//dash over
+            {
+                currentMaxspd = maxspd;
+                currentDashTime = -1f;
+            }
+
+        }
+
+        if (currentSpeed > currentMaxspd)
+        {
+            velocity = velocity.normalized * currentMaxspd;
+        }
+
 
         if (debugSpeed != null)
         {
@@ -249,31 +309,42 @@ public class PlayerControl : MonoBehaviour
         //horizontal collision
         //collision = Physics2D.CircleCast(transform.position, circleCollider.radius * transform.localScale.x, new Vector2( -1+2*Convert.ToInt32((Mathf.Sign(moveVector.x) > 0)),0), Mathf.Abs(moveVector.x),playerCollisionMask);
         //if (collision.transform != null)//hit something
-        collisions = circleCollider.Cast(new Vector2(-1 + 2 * Convert.ToInt32((Mathf.Sign(moveVector.x) > 0)), 0), filter, collision, Mathf.Abs(moveVector.x)*4f);
+        collisions = circleCollider.Cast(new Vector2(-1 + 2 * Convert.ToInt32((Mathf.Sign(moveVector.x) > 0)), 0), filter, collision, Mathf.Abs(moveVector.x));
         if (collisions > 0)
         {
-            //float off = 0f;
-            //off = Mathf.Cos(Mathf.Deg2Rad * vectorAngle(collision[0].point- new Vector2(transform.position.x,transform.position.y))) * circleCollider.bounds.size.x * transform.localScale.x;
-            //moveVector.x = (collision[0].point.x - (transform.position.x + off));
-            moveVector.x = Mathf.Cos(moveVector.x) * Mathf.Max((collision[0].distance-2f),0);
+            int shortest = 0;
+            for (int i = 0; i < collisions; i++)
+            {
+                if ((collision[i].distance) < (collision[shortest].distance))
+                {
+                    shortest = 1;
+                }
+            }
+            moveVector.x = Mathf.Cos(moveVector.x) * (collision[shortest].distance);
         }
 
         //vertical collision
         //collision = Physics2D.CircleCast(transform.position, circleCollider.radius * transform.localScale.x, new Vector2(0, -1 + 2 * Convert.ToInt32((Mathf.Sign(moveVector.y) > 0))), Mathf.Abs(moveVector.y), playerCollisionMask);
         //if (collision.transform != null)//hit something
-        collisions = circleCollider.Cast(new Vector2(0, -1 + 2 * Convert.ToInt32((Mathf.Sign(moveVector.y) > 0))), filter, collision, Mathf.Abs(moveVector.y)*4f);
+        collisions = circleCollider.Cast(new Vector2(0, -1 + 2 * Convert.ToInt32((Mathf.Sign(moveVector.y) > 0))), filter, collision, Mathf.Abs(moveVector.y));
         if (collisions > 0)
         {
-            //moveVector.y -= Mathf.Max( Mathf.Abs( (transform.position.y+moveVector.y)- collision[0].point.y),moveVector.y) * Mathf.Sign(moveVector.y) ;
-            //float off = 0f;
-            //off = Mathf.Sin(Mathf.Deg2Rad * vectorAngle(collision[0].point - new Vector2(transform.position.x, transform.position.y))) * collision[0].dis * transform.localScale.y;
-            //moveVector.y = (collision[0].point.y - (transform.position.y + off));
-            //Mathf.Sin(Mathf.Deg2Rad * vectorAngle(new Vector2(0, -1 + 2 * Convert.ToInt32((Mathf.Sign(moveVector.y) > 0)))))
-            print(collision[0].distance);
-            moveVector.y = Mathf.Sign(moveVector.y) * Mathf.Max((collision[0].distance-2f),0);
+            int shortest = 0;
+            for (int i = 0; i < collisions; i++)
+            {
+                if( (collision[i].distance) < (collision[shortest].distance))
+                {
+                    shortest = 1;
+                }
+            }
+            moveVector.y = Mathf.Sign(moveVector.y) * (collision[shortest].distance);
         }
 
-        
+        collisions = circleCollider.Cast(moveVector.normalized, filter, collision, moveVector.magnitude);
+        if (collisions > 0)
+        {
+            moveVector = Vector2.zero;
+        }
 
         Vector3 targetVector = new Vector3(transform.position.x + Mathf.Cos(direction * Mathf.Deg2Rad) * 20f, transform.position.y + Mathf.Sin(direction * Mathf.Deg2Rad) * 20f, transform.position.z);
         Debug.DrawLine(transform.position+Vector3.back, targetVector + Vector3.back);
