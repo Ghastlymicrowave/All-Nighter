@@ -1913,7 +1913,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 583964851}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 233.5, y: -106.2, z: -7.168586}
+  m_LocalPosition: {x: 233.5, y: -106.2, z: -112.2}
   m_LocalScale: {x: 11.464, y: 11.464, z: 11.464}
   m_Children:
   - {fileID: 963194228}
@@ -1988,15 +1988,15 @@ MonoBehaviour:
     m_Bits: 64
   setCameraOffsetAtStart: 1
   cameraOffset: {x: 0, y: 0, z: 0}
-  cameraMoveExtensionSpeed: 0.01
-  cameraMoveExtensionMaximumDistance: 3
+  cameraMoveExtensionSpeed: 0.69
+  cameraMoveExtensionMaximumDistance: 1
   cameraMovementFactor: 0.02
-  cameraRotationFactor: 0.2
-  cameraScaleZAccordingToExtension: 1
+  cameraRotationFactor: 0.009
+  cameraScaleZAccordingToExtension: 0
   cameraScaleZOnlyIfFollowing: 1
   cameraLowDistanceZ: 0
-  cameraHighDistanceZ: 4
-  cameraMinimumDistanceToFollow: 0
+  cameraHighDistanceZ: 0.35
+  cameraMinimumDistanceToFollow: 0.92
   cameraAngleThreshold: 45
 --- !u!50 &583964857
 Rigidbody2D:
@@ -2932,7 +2932,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 963194225}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -19.34154}
+  m_LocalPosition: {x: 0, y: 0, z: -21}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 583964854}
