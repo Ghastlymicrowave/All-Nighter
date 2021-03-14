@@ -41,6 +41,16 @@ public class PlayerControl : MonoBehaviour
     [Tooltip("the inital speed of a dash")]
     [SerializeField] private float initalDashSpeed;
 
+    [SerializeField] private float attackTime;
+    [SerializeField] private float attackBurstTime;
+    [SerializeField] private float attackSpeed;
+    [SerializeField] private float initalAttackSpeed;
+    [SerializeField] GameObject attackHitboxRef;
+    [SerializeField] private float attackHitboxEnableTime;
+    [SerializeField] private float attackHitboxDisableTime;
+    [SerializeField] private float attackHitboxDistance;
+
+
     [SerializeField] Text debugSpeed;
     private float lastDirection;    
     public LayerMask playerCollisionMask;
@@ -74,6 +84,7 @@ public class PlayerControl : MonoBehaviour
     [SerializeField] [Range(0.0f, 360.0f)] private float cameraAngleThreshold = 45f;
 
     private float currentDashTime = -1;//-1 means inactive, -0.1 means just started
+    private float currentAttackTime = -1;
 
     private Vector2 cameraMove;
 
@@ -152,6 +163,7 @@ public class PlayerControl : MonoBehaviour
             cameraOffset = camera.transform.localPosition;
         }
         currentMaxspd = maxspd;
+        attackHitboxRef.SetActive(false); 
     }
 
     // Update is called once per frame
@@ -224,7 +236,7 @@ public class PlayerControl : MonoBehaviour
             }     
         }
 
-        if (Input.GetAxis("Dash") > 0 && currentDashTime == -1f)
+        void SetLockedDir()
         {
             if (velocity.magnitude > 0.1f)
             {
@@ -234,37 +246,71 @@ public class PlayerControl : MonoBehaviour
             {
                 lockedDirection = lastDirectionVector;
             }
-            
-            currentDashTime = -0.1f;
         }
 
-        if (currentDashTime != -1f)
+
+        if (Input.GetButton("Dash") && currentDashTime == -1f)
         {
-            if (currentDashTime == -0.1f)
+            SetLockedDir();
+            currentDashTime = -0.1f;
+        }
+        else if (Input.GetButton("Attack") && currentAttackTime == -1f)
+        {
+            SetLockedDir();
+            currentAttackTime = -0.1f;
+        }
+
+        void DashTick(ref float currentTime, float initalSpeed, float speed, float burstTime, float totalTime)
+        {
+            if (currentTime == -0.1f)
             {
-                currentDashTime = 0f;
+                currentTime = 0f;
             }
             else
             {
-                currentDashTime += Time.deltaTime;
+                currentTime += Time.deltaTime;
             }
-            if (currentDashTime < dashBurstTime)
+            if (currentTime < burstTime)
             {
-                currentMaxspd = currentDashTime / dashBurstTime * (dashSpeed - initalDashSpeed) + initalDashSpeed;
+                currentMaxspd = currentTime / burstTime * (speed - initalSpeed) + initalSpeed;
                 velocity = lockedDirection.normalized * currentMaxspd;
             }
-            else if (currentDashTime < dashTime)
+            else if (currentTime < totalTime)
             {
-                currentMaxspd = OutCos((currentDashTime - dashBurstTime) / (dashTime - dashBurstTime)) * dashSpeed;
-                print((currentDashTime - dashBurstTime) / (dashTime - dashBurstTime));
+                currentMaxspd = OutCos((currentTime - burstTime) / (totalTime - burstTime)) * speed;
+                print((currentTime - burstTime) / (totalTime - burstTime));
                 velocity = lockedDirection.normalized * currentMaxspd;
             }
             else//dash over
             {
                 currentMaxspd = maxspd;
-                currentDashTime = -1f;
+                currentTime = -1f;
             }
+        }
 
+
+
+        if (currentDashTime != -1f)
+        {
+            DashTick(ref currentDashTime, initalDashSpeed, dashSpeed, dashBurstTime, dashTime);
+
+        }else if (currentAttackTime != -1f)
+        {
+            DashTick(ref currentAttackTime, initalAttackSpeed, attackSpeed, attackBurstTime, attackTime);
+            //enable or disable hitbox
+            if (currentAttackTime >= attackHitboxEnableTime && currentAttackTime < attackHitboxDisableTime && !attackHitboxRef.activeInHierarchy)
+            {
+                attackHitboxRef.SetActive(true);
+            }
+            if ((currentAttackTime >= attackHitboxDisableTime || currentAttackTime == -1f) && attackHitboxRef.activeInHierarchy)
+            {
+                attackHitboxRef.SetActive(false);
+            }
+            //move hitbox
+            if (attackHitboxRef.activeInHierarchy)
+            {
+                attackHitboxRef.transform.localPosition = new Vector2(lockedDirection.x * referenceGrid.cellSize.x, lockedDirection.y * referenceGrid.cellSize.y) * attackHitboxDistance;
+            }
         }
 
         if (currentSpeed > currentMaxspd)
@@ -307,8 +353,6 @@ public class PlayerControl : MonoBehaviour
         }
 
         //horizontal collision
-        //collision = Physics2D.CircleCast(transform.position, circleCollider.radius * transform.localScale.x, new Vector2( -1+2*Convert.ToInt32((Mathf.Sign(moveVector.x) > 0)),0), Mathf.Abs(moveVector.x),playerCollisionMask);
-        //if (collision.transform != null)//hit something
         collisions = circleCollider.Cast(new Vector2(-1 + 2 * Convert.ToInt32((Mathf.Sign(moveVector.x) > 0)), 0), filter, collision, Mathf.Abs(moveVector.x));
         if (collisions > 0)
         {
@@ -324,8 +368,6 @@ public class PlayerControl : MonoBehaviour
         }
 
         //vertical collision
-        //collision = Physics2D.CircleCast(transform.position, circleCollider.radius * transform.localScale.x, new Vector2(0, -1 + 2 * Convert.ToInt32((Mathf.Sign(moveVector.y) > 0))), Mathf.Abs(moveVector.y), playerCollisionMask);
-        //if (collision.transform != null)//hit something
         collisions = circleCollider.Cast(new Vector2(0, -1 + 2 * Convert.ToInt32((Mathf.Sign(moveVector.y) > 0))), filter, collision, Mathf.Abs(moveVector.y));
         if (collisions > 0)
         {
